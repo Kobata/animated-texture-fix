@@ -30,19 +30,22 @@ public class FastTextureAtlasSprite extends TextureAtlasSprite {
             tickCounter = 0;
             int k = animationMetadata.getFrameIndex(frameCounter);
 
-            if (i != k && k >= 0 && k < framesTextureData.size())
-            {
+            if (i != k && k >= 0 && k < framesTextureData.size()) {
                 int[][] frameData = (int[][])this.framesTextureData.get(k);
 
-                if(AnimfixModContainer.copyImageSupported && textureId != -1) {
+                if(AnimfixModContainer.copyImageEnabled && textureId != -1) {
                     int destTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+
+                    // Unbinding texture for safety, since copy image has an explicit destination.
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+
                     for (int mip = 0; mip < frameData.length; ++mip) {
                         ARBCopyImage
                                 .glCopyImageSubData(textureId, GL11.GL_TEXTURE_2D, mip, (width * k) >> mip, 0, 0, destTex, GL11.GL_TEXTURE_2D, mip, originX >> mip,
                                                     originY >> mip,
                                                     0, width >> mip, height >> mip, 1);
                     }
+
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, destTex);
                 } else {
                     TextureUtil.uploadTextureMipmap(frameData, width, height, originX, originY, false, false);
@@ -61,7 +64,7 @@ public class FastTextureAtlasSprite extends TextureAtlasSprite {
         super.setFramesTextureData(p_110968_1_);
 
         // No need for extra texture if there's only one frame.
-        if(p_110968_1_.size() > 1 && AnimfixModContainer.copyImageSupported) {
+        if(p_110968_1_.size() > 1 && AnimfixModContainer.copyImageEnabled) {
             textureId = GL11.glGenTextures();
 
             int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);

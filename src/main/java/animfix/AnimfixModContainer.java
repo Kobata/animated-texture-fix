@@ -6,28 +6,29 @@ import cpw.mods.fml.common.DummyModContainer;
 import cpw.mods.fml.common.LoadController;
 import cpw.mods.fml.common.ModMetadata;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.common.config.Configuration;
 import org.lwjgl.opengl.ContextCapabilities;
 import org.lwjgl.opengl.GLContext;
 
+import java.io.File;
 import java.util.Arrays;
 
 public class AnimfixModContainer extends DummyModContainer {
     public static boolean copyImageSupported = false;
+    public static boolean copyImageEnabled = false;
 
-    public AnimfixModContainer()
-    {
+    public AnimfixModContainer() {
         super(new ModMetadata());
         ModMetadata meta = getMetadata();
         meta.modId="animfix";
         meta.name="Animated Texture Fix";
-        meta.version="0.1";
+        meta.version="0.2";
         meta.authorList= Arrays.asList("Kobata");
         meta.description="Makes animated textures faster.";
     }
 
     @Override
-    public boolean registerBus(EventBus bus, LoadController controller)
-    {
+    public boolean registerBus(EventBus bus, LoadController controller) {
         bus.register(this);
         return true;
     }
@@ -41,5 +42,16 @@ public class AnimfixModContainer extends DummyModContainer {
         } else {
             evt.getModLog().info("Using fast animated textures.");
         }
+
+        File configFile = evt.getSuggestedConfigurationFile();
+        Configuration config = new Configuration(configFile);
+
+        boolean enableFastAnimation = config.getBoolean("enableFastAnimation", "animfix", true, "Enable the faster animation mode. Set to false only if true causes issues.");
+
+        if(config.hasChanged()) {
+            config.save();
+        }
+
+        copyImageEnabled = copyImageSupported && copyImageEnabled;
     }
 }
