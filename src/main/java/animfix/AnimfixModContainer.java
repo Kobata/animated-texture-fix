@@ -52,6 +52,6 @@ public class AnimfixModContainer extends DummyModContainer {
             config.save();
         }
 
-        copyImageEnabled = copyImageSupported && copyImageEnabled;
+        copyImageEnabled = copyImageSupported && enableFastAnimation;
     }
 }
