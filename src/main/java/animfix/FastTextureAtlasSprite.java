@@ -6,6 +6,7 @@ import org.lwjgl.opengl.ARBCopyImage;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL14;
+import org.lwjgl.opengl.GL43;
 
 import java.util.List;
 
@@ -23,7 +24,7 @@ public class FastTextureAtlasSprite extends TextureAtlasSprite {
 
         if (tickCounter >= animationMetadata.getFrameTimeSingle(frameCounter))
         {
-            int i = animationMetadata.getFrameIndex(this.frameCounter);
+            int i = animationMetadata.getFrameIndex(frameCounter);
             int j = animationMetadata.getFrameCount() == 0 ? framesTextureData.size() : animationMetadata.getFrameCount();
             frameCounter = (frameCounter + 1) % j;
             tickCounter = 0;
@@ -31,15 +32,20 @@ public class FastTextureAtlasSprite extends TextureAtlasSprite {
 
             if (i != k && k >= 0 && k < framesTextureData.size())
             {
+                int[][] frameData = (int[][])this.framesTextureData.get(k);
+
                 if(AnimfixModContainer.copyImageSupported && textureId != -1) {
                     int destTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
-                    ARBCopyImage
-                            .glCopyImageSubData(textureId, GL11.GL_TEXTURE_2D, 0, width * k, 0, 0, destTex, GL11.GL_TEXTURE_2D, 0, originX, originY,
-                                                0, width, height, 1);
+                    for (int mip = 0; mip < frameData.length; ++mip) {
+                        ARBCopyImage
+                                .glCopyImageSubData(textureId, GL11.GL_TEXTURE_2D, mip, (width * k) >> mip, 0, 0, destTex, GL11.GL_TEXTURE_2D, mip, originX >> mip,
+                                                    originY >> mip,
+                                                    0, width >> mip, height >> mip, 1);
+                    }
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, destTex);
                 } else {
-                    TextureUtil.uploadTextureMipmap((int[][])this.framesTextureData.get(k), this.width, this.height, this.originX, this.originY, false, false);
+                    TextureUtil.uploadTextureMipmap(frameData, width, height, originX, originY, false, false);
                 }
             }
         }
