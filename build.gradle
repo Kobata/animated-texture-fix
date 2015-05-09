@@ -1,0 +1,203 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            name = "forge"
+            url = "http://files.minecraftforge.net/maven"
+        }
+        maven {
+            name = "sonatype"
+            url = "https://oss.sonatype.org/content/repositories/snapshots/"
+        }
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:1.2-SNAPSHOT'
+    }
+}
+
+apply plugin: 'idea'
+apply plugin: 'forge'
+apply plugin: 'curseforge'
+
+// Configuration variables
+
+if(!mod_version) {
+    ext.mod_version = "UNKNOWN"
+}
+
+ext.mod_name = "Anim-Texture-Fix"
+ext.curseId = 0
+
+ext.mcversion = "1.7.10"
+minecraft {
+    version = "1.7.10-10.13.3.1403-1.7.10"
+}
+
+group = "texturefix"
+archivesBaseName = mod_name
+
+sourceCompatibility = 1.6
+targetCompatibility = 1.6
+
+jar {
+    manifest {
+        attributes 'FMLCorePlugin': 'animfix.asm.AnimationFixPlugin', 'FMLAT': 'animfix_at.cfg'
+    }
+}
+// Internals below
+
+def getGitCommitHash = { ->
+    try {
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine 'git', 'rev-parse', '--short', 'HEAD'
+            standardOutput = stdout
+        }
+        return stdout.toString().trim()
+    } catch(ignored) {
+        return null;
+    }
+}
+
+def getGitDirtyIndex = { ->
+    try {
+        return exec {
+            commandLine 'git', 'diff-index', '--quiet', '--cached', 'HEAD'
+            ignoreExitValue = true
+        }.exitValue == 1
+    } catch(ignored) {
+        return false;
+    }
+}
+
+def getGitDirtyFiles = { ->
+    try {
+        return exec {
+            commandLine 'git', 'diff-files', '--quiet'
+            ignoreExitValue = true
+        }.exitValue == 1
+    } catch(ignored) {
+        return false;
+    }
+}
+
+def getGitChangelog = { ->
+    try {
+        def stdout = new ByteArrayOutputStream()
+        def gitHash = System.getenv("GIT_COMMIT")
+        def gitPrevHash = System.getenv("GIT_PREVIOUS_COMMIT")
+        def travisRange = System.getenv("TRAVIS_COMMIT_RANGE")
+        if(gitHash && gitPrevHash) {
+            exec {
+                commandLine 'git', 'log', '--pretty=tformat:%s - %aN', '' + gitPrevHash + '...' + gitHash
+                standardOutput = stdout
+            }
+            return stdout.toString().trim()
+        } else if(travisRange) {
+            exec {
+                commandLine 'git', 'log', '--pretty=tformat:%s - %aN', '' + travisRange
+                standardOutput = stdout
+            }
+            return stdout.toString().trim()
+        } else {
+            return "";
+        }
+    } catch(ignored) {
+        return "";
+    }
+}
+
+ext.git_version = getGitCommitHash()
+ext.git_dirty = getGitDirtyIndex() || getGitDirtyFiles()
+
+ext.build_number = System.getenv("BUILD_NUMBER")
+if(!build_number) {
+    ext.build_number = System.getenv("TRAVIS_BUILD_NUMBER")
+}
+
+if(build_number) {
+    version = mod_version + "." + build_number + "-" + mod_state
+} else {
+    version = mod_version + "-" + mod_state
+}
+
+if(git_version) {
+    ext.internal_version = version + "+" + git_version
+    if(git_dirty) {
+        ext.internal_version += "+dirty"
+    }
+} else {
+    ext.internal_version = version
+}
+
+compileJava {
+    options.debug = true
+    options.debugOptions.debugLevel = "source,lines,vars"
+}
+
+task deobfJar(type: Jar) {
+    dependsOn classes
+
+    from sourceSets.main.output
+
+    appendix = 'deobf'
+}
+
+artifacts {
+    archives deobfJar
+}
+
+ext.curseKey = System.getenv("CURSE_API_KEY")
+if(mod_state.equals("alpha")) {
+    ext.curseType = 'alpha'
+    ext.curseVersion = version
+} else if(mod_state.equals("beta")) {
+    ext.curseType = 'beta'
+    ext.curseVersion = version
+} else {
+    ext.curseType = 'release'
+    ext.curseVersion = mod_version
+}
+
+curse.onlyIf { curseKey && curseId }
+
+if(curseKey && curseId) {
+    curse {
+        dependsOn deobfJar
+
+        displayName = mod_name + ' ' + curseVersion
+        releaseType = curseType
+        projectId = curseId
+        apiKey = curseKey
+        changelog = getGitChangelog()
+        gameVersions.add(mcversion)
+
+        additionalArtifact deobfJar
+    }
+}
+
+processResources {
+    inputs.property "version", internal_version
+    inputs.property "mcversion", mcversion
+
+    from(sourceSets.main.resources.srcDirs) {
+        exclude '**/*.png'
+        exclude '**/*_at.cfg'
+
+        expand version: internal_version, mcversion: mcversion
+    }
+    from(sourceSets.main.resources.srcDirs) {
+        include '**/*.png'
+        include '**/*_at.cfg'
+    }
+}
+
+idea {
+    module {
+        inheritOutputDirs = true
+    }
+
+    project {
+        vcs = 'Git'
+    }
+}
